@@ -1,0 +1,7 @@
+name: astrbot_plugin_structured_memory
+display_name: 结构化记忆（测试版）
+author: runwood627
+version: 0.1.0
+desc: 本地 SQLite 结构化事实与事件记忆，按会话隔离并保留来源。
+astrbot_version: "==4.29.3"
+repo: https://github.com/runwood627/astrbot_plugin_structured_memory
