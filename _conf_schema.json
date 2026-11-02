@@ -1,0 +1,29 @@
+{
+  "fact_search_limit": {
+    "description": "每次事实查询最多返回条数",
+    "type": "int",
+    "default": 20,
+    "hint": "限制每次工具查询返回的事实数量，范围 1–100；不会删除数据，也不会限制 AstrBot 对话上下文长度。",
+    "slider": {"min": 1, "max": 100, "step": 1}
+  },
+  "event_search_limit": {
+    "description": "每次事件查询最多返回条数",
+    "type": "int",
+    "default": 20,
+    "hint": "限制每次事件工具查询的返回数量，范围 1–100；不会删除数据。",
+    "slider": {"min": 1, "max": 100, "step": 1}
+  },
+  "list_limit": {
+    "description": "我的记忆列表最多显示条数",
+    "type": "int",
+    "default": 50,
+    "hint": "限制 /我的记忆 展示的记录数量，范围 1–200；不会改变数据库容量。",
+    "slider": {"min": 1, "max": 200, "step": 1}
+  },
+  "suggest_automatic_memory": {
+    "description": "提示模型主动记录稳定事实",
+    "type": "bool",
+    "default": true,
+    "hint": "关闭后提示模型只在用户明确要求时保存；这是提示词策略，不能保证模型一定遵守，也不会禁用记忆工具。"
+  }
+}

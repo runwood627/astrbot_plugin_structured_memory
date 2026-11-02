@@ -53,14 +53,14 @@ class FactStore:
                 return row[0]
             return db.execute("INSERT INTO facts(scope,user_id,category,attribute,value,source_message_id,source_text,status,expires_on) VALUES(?,?,?,?,?,?,?,?,?)", (scope,user_id,category,attribute,value,source_id,source_text,status,expiry)).lastrowid
 
-    def search(self, scope, user_id, category="", attribute=""):
+    def search(self, scope, user_id, category="", attribute="", limit=20):
         today = datetime.now(ZoneInfo("Asia/Shanghai")).date().isoformat()
         with closing(sqlite3.connect(self.path)) as db:
-            return db.execute("SELECT id,category,attribute,value,source_text,created_at,status,expires_on FROM facts WHERE scope=? AND user_id=? AND status IN ('active','unconfirmed') AND (expires_on IS NULL OR expires_on>=?) AND (?='' OR category=?) AND (?='' OR attribute=?) ORDER BY id DESC LIMIT 20", (scope,user_id,today,category,category,attribute,attribute)).fetchall()
+            return db.execute("SELECT id,category,attribute,value,source_text,created_at,status,expires_on FROM facts WHERE scope=? AND user_id=? AND status IN ('active','unconfirmed') AND (expires_on IS NULL OR expires_on>=?) AND (?='' OR category=?) AND (?='' OR attribute=?) ORDER BY id DESC LIMIT ?", (scope,user_id,today,category,category,attribute,attribute,limit)).fetchall()
 
-    def list_facts(self, scope, user_id):
+    def list_facts(self, scope, user_id, limit=50):
         with closing(sqlite3.connect(self.path)) as db:
-            return db.execute("SELECT id,category,attribute,value,source_text,created_at,status,expires_on,source_message_id FROM facts WHERE scope=? AND user_id=? ORDER BY id DESC LIMIT 50", (scope,user_id)).fetchall()
+            return db.execute("SELECT id,category,attribute,value,source_text,created_at,status,expires_on,source_message_id FROM facts WHERE scope=? AND user_id=? ORDER BY id DESC LIMIT ?", (scope,user_id,limit)).fetchall()
 
     def forget(self, scope, user_id, fact_id):
         with closing(sqlite3.connect(self.path)) as db, db:
@@ -94,10 +94,10 @@ class FactStore:
         with closing(sqlite3.connect(self.path)) as db, db:
             return db.execute("INSERT INTO events(scope,author_id,title,description,occurred_at,source_message_id,source_text) VALUES(?,?,?,?,?,?,?)", (scope,author_id,title[:120],description[:500],date,source_id[:100],source_text[:1000])).lastrowid
 
-    def search_events(self, scope, keyword="", start="", end=""):
+    def search_events(self, scope, keyword="", start="", end="", limit=20):
         keyword = keyword.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
         with closing(sqlite3.connect(self.path)) as db:
-            return db.execute("SELECT id,title,description,occurred_at,source_text FROM events WHERE scope=? AND status='active' AND (?='' OR occurred_at>=?) AND (?='' OR occurred_at<=?) AND (?='' OR title LIKE ? ESCAPE '\\' OR description LIKE ? ESCAPE '\\') ORDER BY occurred_at DESC,id DESC LIMIT 20", (scope,start,start,end,end,keyword,f'%{keyword}%',f'%{keyword}%')).fetchall()
+            return db.execute("SELECT id,title,description,occurred_at,source_text FROM events WHERE scope=? AND status='active' AND (?='' OR occurred_at>=?) AND (?='' OR occurred_at<=?) AND (?='' OR title LIKE ? ESCAPE '\\' OR description LIKE ? ESCAPE '\\') ORDER BY occurred_at DESC,id DESC LIMIT ?", (scope,start,start,end,end,keyword,f'%{keyword}%',f'%{keyword}%',limit)).fetchall()
 
     def forget_event(self, scope, author_id, event_id):
         with closing(sqlite3.connect(self.path)) as db, db:
