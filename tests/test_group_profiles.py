@@ -36,4 +36,5 @@ async def main():
         assert '已关闭' in await turn(201,6,'/关闭画像共享')
         reader.cancel()
 
-asyncio.run(main())
+if __name__ == '__main__':
+    asyncio.run(main())

@@ -20,6 +20,19 @@
     "hint": "限制 /我的记忆 展示的记录数量，范围 1–200；不会改变数据库容量。",
     "slider": {"min": 1, "max": 200, "step": 1}
   },
+  "identify_group_speakers": {
+    "description": "标记群聊近期发言人",
+    "type": "bool",
+    "default": true,
+    "hint": "向模型提供同一会话近期消息的发送者 ID 和昵称，用于区分群友；仅保存在内存，重载后清空。"
+  },
+  "recent_speaker_limit": {
+    "description": "近期发言人上下文条数",
+    "type": "int",
+    "default": 8,
+    "slider": {"min": 1, "max": 30, "step": 1},
+    "hint": "每次最多附带多少条近期群消息，范围 1–30；消息会发送给所选聊天模型。"
+  },
   "inject_speaker_profile": {
     "description": "自动提供当前发言人的画像",
     "type": "bool",
