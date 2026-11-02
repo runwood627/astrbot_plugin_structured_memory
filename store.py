@@ -29,6 +29,8 @@ class FactStore:
                 occurred_at TEXT NOT NULL, source_message_id TEXT NOT NULL,
                 source_text TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)""")
             db.execute("CREATE INDEX IF NOT EXISTS event_lookup ON events(scope,occurred_at)")
+            db.execute("CREATE TABLE IF NOT EXISTS profile_sharing (scope TEXT NOT NULL, user_id TEXT NOT NULL, enabled INTEGER NOT NULL DEFAULT 0, PRIMARY KEY(scope,user_id))")
+            db.execute("CREATE TABLE IF NOT EXISTS cross_session_consent (platform_id TEXT NOT NULL, user_id TEXT NOT NULL, enabled INTEGER NOT NULL DEFAULT 0, PRIMARY KEY(platform_id,user_id))")
             event_columns = {row[1] for row in db.execute("PRAGMA table_info(events)")}
             if "status" not in event_columns:
                 db.execute("ALTER TABLE events ADD COLUMN status TEXT NOT NULL DEFAULT 'active'")
@@ -41,7 +43,7 @@ class FactStore:
         source_id, source_text = str(source_id or '')[:100], str(source_text or '').strip()[:1000]
         if not all((scope, user_id, category, attribute, value, source_text)):
             raise ValueError("missing required fact fields")
-        if category not in {"称呼", "偏好", "个人信息", "其他"}:
+        if category not in {"称呼", "偏好", "性格", "关系", "个人信息", "其他"}:
             raise ValueError("unsupported category")
         if certainty not in {"confirmed", "unconfirmed"}:
             raise ValueError("unsupported certainty")
@@ -53,14 +55,40 @@ class FactStore:
                 return row[0]
             return db.execute("INSERT INTO facts(scope,user_id,category,attribute,value,source_message_id,source_text,status,expires_on) VALUES(?,?,?,?,?,?,?,?,?)", (scope,user_id,category,attribute,value,source_id,source_text,status,expiry)).lastrowid
 
-    def search(self, scope, user_id, category="", attribute="", limit=20):
+    def search(self, scope, user_id, category="", attribute="", limit=20, confirmed_only=False):
         today = datetime.now(ZoneInfo("Asia/Shanghai")).date().isoformat()
         with closing(sqlite3.connect(self.path)) as db:
-            return db.execute("SELECT id,category,attribute,value,source_text,created_at,status,expires_on FROM facts WHERE scope=? AND user_id=? AND status IN ('active','unconfirmed') AND (expires_on IS NULL OR expires_on>=?) AND (?='' OR category=?) AND (?='' OR attribute=?) ORDER BY id DESC LIMIT ?", (scope,user_id,today,category,category,attribute,attribute,limit)).fetchall()
+            return db.execute("SELECT id,category,attribute,value,source_text,created_at,status,expires_on FROM facts WHERE scope=? AND user_id=? AND status IN ('active','unconfirmed') AND (?=0 OR status='active') AND (expires_on IS NULL OR expires_on>=?) AND (?='' OR category=?) AND (?='' OR attribute=?) ORDER BY id DESC LIMIT ?", (scope,user_id,int(confirmed_only),today,category,category,attribute,attribute,limit)).fetchall()
 
     def list_facts(self, scope, user_id, limit=50):
         with closing(sqlite3.connect(self.path)) as db:
             return db.execute("SELECT id,category,attribute,value,source_text,created_at,status,expires_on,source_message_id FROM facts WHERE scope=? AND user_id=? ORDER BY id DESC LIMIT ?", (scope,user_id,limit)).fetchall()
+
+    def set_profile_sharing(self, scope, user_id, enabled):
+        with closing(sqlite3.connect(self.path)) as db, db:
+            db.execute("INSERT INTO profile_sharing(scope,user_id,enabled) VALUES(?,?,?) ON CONFLICT(scope,user_id) DO UPDATE SET enabled=excluded.enabled", (scope,user_id,int(enabled)))
+
+    def shared_profile(self, scope, target_user_id, limit=20):
+        """Return only opted-in, confirmed, non-sensitive facts in this session."""
+        today = datetime.now(ZoneInfo("Asia/Shanghai")).date().isoformat()
+        with closing(sqlite3.connect(self.path)) as db:
+            permission = db.execute("SELECT enabled FROM profile_sharing WHERE scope=? AND user_id=?", (scope,target_user_id)).fetchone()
+            if not permission or not permission[0]:
+                return []
+            return db.execute("SELECT category,attribute,value FROM facts WHERE scope=? AND user_id=? AND status='active' AND category IN ('称呼','偏好','性格') AND (expires_on IS NULL OR expires_on>=?) ORDER BY id DESC LIMIT ?", (scope,target_user_id,today,limit)).fetchall()
+
+    def set_cross_session(self, platform_id, user_id, enabled):
+        with closing(sqlite3.connect(self.path)) as db, db:
+            db.execute("INSERT INTO cross_session_consent VALUES(?,?,?) ON CONFLICT(platform_id,user_id) DO UPDATE SET enabled=excluded.enabled", (platform_id,user_id,int(enabled)))
+
+    def own_cross_session(self, platform_id, user_id, current_scope, limit=8):
+        today = datetime.now(ZoneInfo("Asia/Shanghai")).date().isoformat()
+        escaped = platform_id.replace('\\', '\\\\').replace('%', '\\%').replace('_', '\\_')
+        with closing(sqlite3.connect(self.path)) as db:
+            consent = db.execute("SELECT enabled FROM cross_session_consent WHERE platform_id=? AND user_id=?", (platform_id,user_id)).fetchone()
+            if not consent or not consent[0]:
+                return []
+            return db.execute("SELECT category,attribute,value FROM facts WHERE scope LIKE ? ESCAPE '\\' AND scope<>? AND user_id=? AND status='active' AND category IN ('称呼','偏好','性格') AND (expires_on IS NULL OR expires_on>=?) ORDER BY id DESC LIMIT ?", (escaped+':%',current_scope,user_id,today,limit)).fetchall()
 
     def forget(self, scope, user_id, fact_id):
         with closing(sqlite3.connect(self.path)) as db, db:

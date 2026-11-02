@@ -25,6 +25,27 @@ class StoreTests(unittest.TestCase):
         self.assertEqual(self.store.search('group-a', 'bob'), [])
         self.assertEqual(self.store.search('group-b', 'alice'), [])
 
+    def test_shared_profiles_require_scope_bound_consent(self):
+        self.store.save('p:GroupMessage:1', 'alice', '偏好', '茶', '乌龙', '1', '我喜欢乌龙')
+        self.store.save('p:GroupMessage:1', 'alice', '个人信息', '住址', '秘密', '2', '住址')
+        self.store.save('p:GroupMessage:1', 'alice', '性格', '气质', '可能安静', '3', '也许', certainty='unconfirmed')
+        self.assertEqual(self.store.shared_profile('p:GroupMessage:1', 'alice'), [])
+        self.store.set_profile_sharing('p:GroupMessage:1', 'alice', True)
+        self.assertEqual(self.store.shared_profile('p:GroupMessage:1', 'alice'), [('偏好', '茶', '乌龙')])
+        self.assertEqual(self.store.shared_profile('p:GroupMessage:2', 'alice'), [])
+        self.store.set_profile_sharing('p:GroupMessage:1', 'alice', False)
+        self.assertEqual(self.store.shared_profile('p:GroupMessage:1', 'alice'), [])
+
+    def test_cross_session_is_own_opt_in_and_platform_bound(self):
+        self.store.save('p_x:GroupMessage:1', 'alice', '偏好', '茶', '乌龙', '1', '我喜欢乌龙')
+        self.store.save('pAx:GroupMessage:1', 'alice', '偏好', '茶', '错误', '2', '其他平台')
+        self.store.save('p_x:GroupMessage:1', 'bob', '偏好', '茶', '奶茶', '3', '其他人')
+        self.assertEqual(self.store.own_cross_session('p_x', 'alice', 'p_x:FriendMessage:alice'), [])
+        self.store.set_cross_session('p_x', 'alice', True)
+        self.assertEqual(self.store.own_cross_session('p_x', 'alice', 'p_x:FriendMessage:alice'), [('偏好', '茶', '乌龙')])
+        self.store.set_cross_session('p_x', 'alice', False)
+        self.assertEqual(self.store.own_cross_session('p_x', 'alice', 'p_x:FriendMessage:alice'), [])
+
     def test_dedup_uses_normalized_stored_values(self):
         args = ('group', 'alice', '偏好', 'a' * 90, 'b' * 310, '1', 'source')
         first = self.store.save(*args)

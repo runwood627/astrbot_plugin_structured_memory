@@ -20,6 +20,19 @@
     "hint": "限制 /我的记忆 展示的记录数量，范围 1–200；不会改变数据库容量。",
     "slider": {"min": 1, "max": 200, "step": 1}
   },
+  "inject_speaker_profile": {
+    "description": "自动提供当前发言人的画像",
+    "type": "bool",
+    "default": true,
+    "hint": "每次回答时提供当前会话中该发言人的已确认事实；会增加输入 token，不会注入其他人的画像。"
+  },
+  "profile_limit": {
+    "description": "每次最多提供多少条画像事实",
+    "type": "int",
+    "default": 8,
+    "slider": {"min": 1, "max": 20, "step": 1},
+    "hint": "限制自动注入和同群共享画像的条数；不会删除记录。"
+  },
   "suggest_automatic_memory": {
     "description": "提示模型主动记录稳定事实",
     "type": "bool",
