@@ -9,6 +9,7 @@ from types import SimpleNamespace
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from astrbot_plugin_structured_memory.main import StructuredMemory
 from astrbot_plugin_structured_memory.store import FactStore
+from astrbot.core.message.components import At, Reply
 
 
 class ToolTests(unittest.IsolatedAsyncioTestCase):
@@ -48,6 +49,7 @@ class ToolTests(unittest.IsolatedAsyncioTestCase):
             alice = event('qq:GroupMessage:42', '101', '1', '我喜欢茶')
             bob = event('qq:GroupMessage:42', '202', '2', '我喜欢咖啡')
             other = event('qq:GroupMessage:43', '303', '3', '秘密内容')
+            alice.get_messages = lambda: [At(qq='202'), Reply(id='old', sender_id='202')]
             for item in (alice, bob, other):
                 await plugin.remember_recent_speaker(item)
             req = SimpleNamespace(extra_user_content_parts=[])
@@ -56,6 +58,8 @@ class ToolTests(unittest.IsolatedAsyncioTestCase):
             self.assertIn('"user_id": "101"', content)
             self.assertIn('"user_id": "202"', content)
             self.assertIn('我喜欢茶', content)
+            self.assertIn('"mentions": ["202"]', content)
+            self.assertIn('"message_id": "old"', content)
             self.assertNotIn('秘密内容', content)
             self.assertNotIn('我喜欢咖啡', content)
             bob.get_extra = lambda key, default=None: key == '_clean_group_context_session'

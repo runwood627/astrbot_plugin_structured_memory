@@ -2,6 +2,7 @@ from astrbot.api.event import AstrMessageEvent, filter
 from astrbot.api.star import Context, Star, StarTools
 from astrbot.api.provider import ProviderRequest
 from astrbot.core.agent.message import TextPart
+from astrbot.core.message.components import At, Reply
 from astrbot.core import AstrBotConfig
 from collections import defaultdict, deque
 import json
@@ -103,10 +104,23 @@ class StructuredMemory(Star):
         raw_text = str(raw.get('raw_message') or '') if isinstance(raw, dict) else ''
         if text.startswith('/') or raw_text.lstrip().startswith('/'):
             return
-        self.recent_group_messages[event.unified_msg_origin].append({
+        record = {
             'message_id': str(getattr(event.message_obj, 'message_id', '') or ''),
             'user_id': sender, 'name': str(event.get_sender_name() or '')[:80], 'text': text[:180],
-        })
+        }
+        mentions, quotes = [], []
+        for component in getattr(event, 'get_messages', lambda: [])():
+            if isinstance(component, At) and str(component.qq or '').isdigit():
+                mentions.append(str(component.qq))
+            elif isinstance(component, Reply):
+                reply_sender = str(component.sender_id or '')
+                if reply_sender and reply_sender != '0':
+                    quotes.append({'user_id': reply_sender, 'message_id': str(component.id or '')})
+        if mentions:
+            record['mentions'] = list(dict.fromkeys(mentions))[:10]
+        if quotes:
+            record['quotes'] = quotes[:3]
+        self.recent_group_messages[event.unified_msg_origin].append(record)
 
     @filter.after_message_sent()
     async def clear_recent_speakers_on_reset(self, event: AstrMessageEvent):
